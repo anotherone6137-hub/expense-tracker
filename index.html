@@ -4,7 +4,47 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>ExpenseLens</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js">
+// ============ EDIT ============
+let editId = null;
+let editCat = 'Food';
+
+function openEditModal(id) {
+  const x = DATA.find(e => e.id === id);
+  if (!x) return;
+  editId = id;
+  editCat = x.cat;
+  document.getElementById('edit-amt').value = x.amount;
+  document.getElementById('edit-desc').value = x.desc;
+  document.getElementById('edit-date').value = x.date;
+  document.querySelectorAll('#editCatGrid .cat-btn').forEach(b => {
+    b.classList.toggle('sel', b.dataset.cat === x.cat);
+  });
+  document.getElementById('editOverlay').classList.add('open');
+}
+function closeEditModal() { document.getElementById('editOverlay').classList.remove('open'); editId = null; }
+function saveEdit() {
+  const x = DATA.find(e => e.id === editId);
+  if (!x) return;
+  const amt = parseFloat(document.getElementById('edit-amt').value);
+  const desc = document.getElementById('edit-desc').value.trim();
+  const date = document.getElementById('edit-date').value;
+  if (!amt || !desc || !date) { alert('Fill all fields'); return; }
+  x.amount = amt; x.desc = desc; x.date = date; x.cat = editCat;
+  localStorage.setItem('explens_v1', JSON.stringify(DATA));
+  buildMonthOptions(); render(); closeEditModal();
+}
+document.getElementById('editOverlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('editOverlay')) closeEditModal();
+});
+document.querySelectorAll('#editCatGrid .cat-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#editCatGrid .cat-btn').forEach(b => b.classList.remove('sel'));
+    btn.classList.add('sel');
+    editCat = btn.dataset.cat;
+  });
+});
+</script>
 <style>
   :root {
     --bg: #0d0f14;
@@ -35,7 +75,6 @@
   .logo-icon { font-size: 22px; }
   .logo-text { font-size: 18px; font-weight: 700; }
   .logo-text span { color: var(--accent); }
-  .header-right { display: flex; gap: 10px; align-items: center; }
   .month-select {
     background: var(--surface2); border: 1px solid var(--border);
     color: var(--text); padding: 8px 14px; border-radius: 8px; font-size: 13px;
@@ -111,9 +150,11 @@
   .txn-name { font-size: 13px; font-weight: 500; }
   .txn-meta { font-size: 11px; color: var(--text2); margin-top: 1px; }
   .txn-amt { font-size: 14px; font-weight: 700; color: var(--red); }
-  .txn-del { background: none; border: none; color: var(--text2); cursor: pointer; font-size: 14px; padding: 4px; opacity: 0; transition: opacity 0.15s; }
-  .txn-row:hover .txn-del { opacity: 1; }
+  .txn-del, .txn-edit { background: none; border: none; color: var(--text2); cursor: pointer; font-size: 14px; padding: 4px; opacity: 0; transition: opacity 0.15s; }
+  .txn-row:hover .txn-del, .txn-row:hover .txn-edit { opacity: 1; }
   .txn-del:hover { color: var(--red); }
+  .txn-edit:hover { opacity: 1; }
+  @media (max-width: 600px) { .txn-del, .txn-edit { opacity: 0.6; } }
   .empty-state { text-align: center; padding: 30px; color: var(--text2); font-size: 13px; }
 
   /* BADGE */
@@ -153,6 +194,11 @@
   .budget-set:hover { border-color: var(--accent); color: var(--accent); }
 
 
+
+  .filter-bar {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 10px 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
   .nav-arrow { background: var(--surface2); border: 1px solid var(--border); color: var(--text); width: 30px; height: 30px; border-radius: 7px; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: border-color 0.15s; }
   .nav-arrow:hover { border-color: var(--accent); color: var(--accent); }
   @media (max-width: 768px) {
@@ -185,29 +231,29 @@
     <div class="logo-icon">💸</div>
     <div class="logo-text">Expense<span>Lens</span></div>
   </div>
-  <div class="header-right">
-    <select class="month-select" id="mainFilter" onchange="onMainFilterChange()">
-      <optgroup label="Quick Filters">
-        <option value="month:current">This Month</option>
-        <option value="week:0">This Week</option>
-        <option value="week:-1">Last Week</option>
-        <option value="all">All Time</option>
-      </optgroup>
-      <optgroup label="By Month" id="monthOptGroup"></optgroup>
-      <option value="custom">📅 Custom Range...</option>
-    </select>
-    <div id="weekNav" style="display:none;align-items:center;gap:6px">
-      <button class="nav-arrow" onclick="shiftWeek(-1)">‹</button>
-      <span id="weekLabel" style="font-size:13px;color:var(--text);white-space:nowrap;min-width:160px;text-align:center"></span>
-      <button class="nav-arrow" onclick="shiftWeek(1)">›</button>
-    </div>
-    <div id="customRange" style="display:none;align-items:center;gap:6px">
-      <input type="date" id="customFrom" class="month-select" style="width:130px" onchange="applyFilter()"/>
-      <span style="color:var(--text2);font-size:13px;padding:0 4px">→</span>
-      <input type="date" id="customTo" class="month-select" style="width:130px" onchange="applyFilter()"/>
-    </div>
-    <button class="btn-add" onclick="openModal()">＋ Add Expense</button>
+</div>
+<div class="filter-bar">
+  <select class="month-select" id="mainFilter" onchange="onMainFilterChange()" style="flex:1;max-width:220px">
+    <optgroup label="Quick Filters">
+      <option value="month:current">This Month</option>
+      <option value="week:0">This Week</option>
+      <option value="week:-1">Last Week</option>
+      <option value="all">All Time</option>
+    </optgroup>
+    <optgroup label="By Month" id="monthOptGroup"></optgroup>
+    <option value="custom">📅 Custom Range...</option>
+  </select>
+  <div id="weekNav" style="display:none;align-items:center;gap:6px">
+    <button class="nav-arrow" onclick="shiftWeek(-1)">‹</button>
+    <span id="weekLabel" style="font-size:13px;color:var(--text);white-space:nowrap;min-width:150px;text-align:center"></span>
+    <button class="nav-arrow" onclick="shiftWeek(1)">›</button>
   </div>
+  <div id="customRange" style="display:none;align-items:center;gap:6px;flex-wrap:wrap">
+    <input type="date" id="customFrom" class="month-select" style="width:140px" onchange="applyFilter()"/>
+    <span style="color:var(--text2);font-size:13px;padding:0 2px">→</span>
+    <input type="date" id="customTo" class="month-select" style="width:140px" onchange="applyFilter()"/>
+  </div>
+  <button class="btn-add" onclick="openModal()" style="margin-left:auto">＋ Add Expense</button>
 </div>
 
 <div class="wrap">
@@ -598,6 +644,46 @@ const _now = new Date(), _y = _now.getFullYear(), _m = String(_now.getMonth()+1)
 document.getElementById('customFrom').value = `${_y}-${_m}-01`;
 document.getElementById('customTo').value = `${_y}-${_m}-${_d}`;
 render();
+
+// ============ EDIT ============
+let editId = null;
+let editCat = 'Food';
+
+function openEditModal(id) {
+  const x = DATA.find(e => e.id === id);
+  if (!x) return;
+  editId = id;
+  editCat = x.cat;
+  document.getElementById('edit-amt').value = x.amount;
+  document.getElementById('edit-desc').value = x.desc;
+  document.getElementById('edit-date').value = x.date;
+  document.querySelectorAll('#editCatGrid .cat-btn').forEach(b => {
+    b.classList.toggle('sel', b.dataset.cat === x.cat);
+  });
+  document.getElementById('editOverlay').classList.add('open');
+}
+function closeEditModal() { document.getElementById('editOverlay').classList.remove('open'); editId = null; }
+function saveEdit() {
+  const x = DATA.find(e => e.id === editId);
+  if (!x) return;
+  const amt = parseFloat(document.getElementById('edit-amt').value);
+  const desc = document.getElementById('edit-desc').value.trim();
+  const date = document.getElementById('edit-date').value;
+  if (!amt || !desc || !date) { alert('Fill all fields'); return; }
+  x.amount = amt; x.desc = desc; x.date = date; x.cat = editCat;
+  localStorage.setItem('explens_v1', JSON.stringify(DATA));
+  buildMonthOptions(); render(); closeEditModal();
+}
+document.getElementById('editOverlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('editOverlay')) closeEditModal();
+});
+document.querySelectorAll('#editCatGrid .cat-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#editCatGrid .cat-btn').forEach(b => b.classList.remove('sel'));
+    btn.classList.add('sel');
+    editCat = btn.dataset.cat;
+  });
+});
 </script>
 
 <script>
@@ -606,6 +692,74 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   });
 }
+
+// ============ EDIT ============
+let editId = null;
+let editCat = 'Food';
+
+function openEditModal(id) {
+  const x = DATA.find(e => e.id === id);
+  if (!x) return;
+  editId = id;
+  editCat = x.cat;
+  document.getElementById('edit-amt').value = x.amount;
+  document.getElementById('edit-desc').value = x.desc;
+  document.getElementById('edit-date').value = x.date;
+  document.querySelectorAll('#editCatGrid .cat-btn').forEach(b => {
+    b.classList.toggle('sel', b.dataset.cat === x.cat);
+  });
+  document.getElementById('editOverlay').classList.add('open');
+}
+function closeEditModal() { document.getElementById('editOverlay').classList.remove('open'); editId = null; }
+function saveEdit() {
+  const x = DATA.find(e => e.id === editId);
+  if (!x) return;
+  const amt = parseFloat(document.getElementById('edit-amt').value);
+  const desc = document.getElementById('edit-desc').value.trim();
+  const date = document.getElementById('edit-date').value;
+  if (!amt || !desc || !date) { alert('Fill all fields'); return; }
+  x.amount = amt; x.desc = desc; x.date = date; x.cat = editCat;
+  localStorage.setItem('explens_v1', JSON.stringify(DATA));
+  buildMonthOptions(); render(); closeEditModal();
+}
+document.getElementById('editOverlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('editOverlay')) closeEditModal();
+});
+document.querySelectorAll('#editCatGrid .cat-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#editCatGrid .cat-btn').forEach(b => b.classList.remove('sel'));
+    btn.classList.add('sel');
+    editCat = btn.dataset.cat;
+  });
+});
 </script>
+
+<!-- EDIT MODAL -->
+<div class="overlay" id="editOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title">Edit Expense</div>
+      <button class="close-x" onclick="closeEditModal()">✕</button>
+    </div>
+    <div class="fg"><label>Amount (₹)</label><input id="edit-amt" type="number" min="0" placeholder="0" /></div>
+    <div class="fg"><label>Description</label><input id="edit-desc" placeholder="e.g. Lunch at campus" /></div>
+    <div class="fg"><label>Date</label><input id="edit-date" type="date" /></div>
+    <div class="fg">
+      <label>Category</label>
+      <div class="cat-grid" id="editCatGrid">
+        <div class="cat-btn sel" data-cat="Food">🍔 Food</div>
+        <div class="cat-btn" data-cat="Books">📚 Books</div>
+        <div class="cat-btn" data-cat="Transport">🚌 Transport</div>
+        <div class="cat-btn" data-cat="Fees">🏫 Fees</div>
+        <div class="cat-btn" data-cat="Tech">💻 Tech</div>
+        <div class="cat-btn" data-cat="Health">💊 Health</div>
+        <div class="cat-btn" data-cat="Clothes">👗 Clothes</div>
+        <div class="cat-btn" data-cat="Fun">🎮 Fun</div>
+        <div class="cat-btn" data-cat="Other">📦 Other</div>
+      </div>
+    </div>
+    <button class="btn-save" onclick="saveEdit()">Save Changes</button>
+  </div>
+</div>
 </body>
 </html>
