@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Expense Tracker</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0d0f14;
+    --surface: #161921;
+    --surface2: #1e2330;
+    --border: #252b3b;
+    --accent: #6c63ff;
+    --green: #00c9a7;
+    --yellow: #f7b731;
+    --red: #e05c5c;
+    --blue: #4fa3e3;
+    --text: #e8eaf6;
+    --text2: #7b82a0;
+    --r: 14px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
+
+  /* HEADER */
+  .header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 18px 28px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 50;
+  }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .logo-icon { font-size: 22px; }
+  .logo-text { font-size: 18px; font-weight: 700; }
+  .logo-text span { color: var(--accent); }
+  .header-right { display: flex; gap: 10px; align-items: center; }
+  .month-select {
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); padding: 8px 14px; border-radius: 8px; font-size: 13px;
+    cursor: pointer; outline: none;
+  }
+  .btn-add {
+    background: var(--accent); color: #fff; border: none; padding: 9px 20px;
+    border-radius: 9px; font-size: 13px; font-weight: 700; cursor: pointer;
+    display: flex; align-items: center; gap: 6px; transition: background 0.2s;
+  }
+  .btn-add:hover { background: #5850e0; }
+
+  /* LAYOUT */
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 24px 24px 60px; }
+
+  /* STAT CARDS */
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
+  .stat {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--r); padding: 20px; display: flex; flex-direction: column; gap: 6px;
+    position: relative; overflow: hidden;
+  }
+  .stat::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; border-radius: var(--r) var(--r) 0 0; }
+  .stat.s1::before { background: var(--accent); }
+  .stat.s2::before { background: var(--red); }
+  .stat.s3::before { background: var(--green); }
+  .stat.s4::before { background: var(--yellow); }
+  .stat-label { font-size: 12px; color: var(--text2); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .stat-val { font-size: 26px; font-weight: 800; line-height: 1.1; }
+  .stat-sub { font-size: 12px; color: var(--text2); }
+  .stat-icon { position: absolute; right: 18px; top: 18px; font-size: 26px; opacity: 0.18; }
+
+  /* CHARTS ROW */
+  .charts-row { display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px; margin-bottom: 20px; }
+  .chart-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--r); padding: 20px;
+  }
+  .chart-title { font-size: 14px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .chart-title span { color: var(--text2); font-size: 12px; font-weight: 400; }
+  canvas { max-height: 220px; }
+
+  /* BOTTOM ROW */
+  .bottom-row { display: grid; grid-template-columns: 1fr 1.6fr; gap: 16px; }
+
+  /* CATEGORY BREAKDOWN */
+  .cat-list { display: flex; flex-direction: column; gap: 10px; }
+  .cat-row { display: flex; align-items: center; gap: 10px; }
+  .cat-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .cat-name { font-size: 13px; flex: 1; }
+  .cat-bar-bg { width: 90px; background: var(--surface2); border-radius: 4px; height: 6px; overflow: hidden; }
+  .cat-bar-fill { height: 100%; border-radius: 4px; }
+  .cat-amt { font-size: 13px; font-weight: 600; width: 72px; text-align: right; }
+  .cat-pct { font-size: 11px; color: var(--text2); width: 36px; text-align: right; }
+
+  /* TRANSACTIONS */
+  .txn-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .search-bar {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+    padding: 8px 14px; border-radius: 8px; font-size: 13px; outline: none; width: 200px;
+  }
+  .search-bar::placeholder { color: var(--text2); }
+  .txn-list { display: flex; flex-direction: column; gap: 2px; max-height: 320px; overflow-y: auto; }
+  .txn-list::-webkit-scrollbar { width: 4px; }
+  .txn-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  .txn-row {
+    display: flex; align-items: center; gap: 12px; padding: 10px 12px;
+    border-radius: 8px; transition: background 0.15s;
+  }
+  .txn-row:hover { background: var(--surface2); }
+  .txn-emoji { font-size: 18px; width: 34px; height: 34px; border-radius: 8px; background: var(--surface2); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .txn-info { flex: 1; }
+  .txn-name { font-size: 13px; font-weight: 500; }
+  .txn-meta { font-size: 11px; color: var(--text2); margin-top: 1px; }
+  .txn-amt { font-size: 14px; font-weight: 700; color: var(--red); }
+  .txn-del { background: none; border: none; color: var(--text2); cursor: pointer; font-size: 14px; padding: 4px; opacity: 0; transition: opacity 0.15s; }
+  .txn-row:hover .txn-del { opacity: 1; }
+  .txn-del:hover { color: var(--red); }
+  .empty-state { text-align: center; padding: 30px; color: var(--text2); font-size: 13px; }
+
+  /* BADGE */
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+
+  /* MODAL */
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.72); z-index: 200; display: none; align-items: center; justify-content: center; }
+  .overlay.open { display: flex; }
+  .modal {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 18px;
+    padding: 28px; width: 92%; max-width: 420px; box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+  }
+  .modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px; }
+  .modal-title { font-size: 17px; font-weight: 800; }
+  .close-x { background: var(--surface2); border: none; color: var(--text2); width: 30px; height: 30px; border-radius: 8px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; }
+  .close-x:hover { color: var(--text); }
+  .fg { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+  label { font-size: 11px; color: var(--text2); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+  input, select { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 10px 14px; border-radius: 9px; font-size: 14px; width: 100%; outline: none; font-family: inherit; }
+  input:focus, select:focus { border-color: var(--accent); }
+  .cat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .cat-btn { background: var(--surface2); border: 1.5px solid var(--border); color: var(--text2); padding: 10px 6px; border-radius: 9px; cursor: pointer; text-align: center; font-size: 12px; transition: all 0.15s; }
+  .cat-btn:hover, .cat-btn.sel { border-color: var(--accent); color: var(--accent); background: rgba(108,99,255,0.1); }
+  .btn-save { width: 100%; padding: 13px; background: var(--accent); color: #fff; border: none; border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer; margin-top: 4px; transition: background 0.2s; }
+  .btn-save:hover { background: #5850e0; }
+
+  /* BUDGET BANNER */
+  .budget-bar-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 18px 22px; margin-bottom: 20px; display: flex; align-items: center; gap: 20px; }
+  .budget-info { flex: 1; }
+  .budget-title { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+  .budget-bg { background: var(--surface2); border-radius: 8px; height: 10px; overflow: hidden; }
+  .budget-fill { height: 100%; border-radius: 8px; transition: width 0.5s; }
+  .budget-meta { display: flex; justify-content: space-between; font-size: 12px; color: var(--text2); margin-top: 5px; }
+  .budget-right { text-align: right; flex-shrink: 0; }
+  .budget-pct { font-size: 22px; font-weight: 800; }
+  .budget-set { background: none; border: 1px solid var(--border); color: var(--text2); padding: 6px 12px; border-radius: 7px; font-size: 12px; cursor: pointer; margin-top: 6px; }
+  .budget-set:hover { border-color: var(--accent); color: var(--accent); }
+
+  @media (max-width: 900px) {
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .charts-row { grid-template-columns: 1fr; }
+    .bottom-row { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 520px) {
+    .stats { grid-template-columns: 1fr 1fr; }
+    .header { padding: 14px 16px; }
+    .wrap { padding: 16px 14px 60px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="logo-icon">💸</div>
+    <div class="logo-text">Expense<span>Lens</span></div>
+  </div>
+  <div class="header-right">
+    <select class="month-select" id="monthFilter" onchange="applyFilter()">
+      <option value="all">All Time</option>
+    </select>
+    <button class="btn-add" onclick="openModal()">＋ Add Expense</button>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <!-- BUDGET BAR -->
+  <div class="budget-bar-wrap" id="budgetWrap">
+    <div class="budget-info">
+      <div class="budget-title">📊 Monthly Budget — <span id="budget-month-label">May 2026</span></div>
+      <div class="budget-bg"><div class="budget-fill" id="budget-fill" style="width:0%;background:var(--green)"></div></div>
+      <div class="budget-meta"><span id="budget-spent-lbl">₹0 spent</span><span id="budget-left-lbl">₹0 remaining</span></div>
+    </div>
+    <div class="budget-right">
+      <div class="budget-pct" id="budget-pct">0%</div>
+      <button class="budget-set" onclick="setBudget()">Set Budget</button>
+    </div>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats">
+    <div class="stat s1"><span class="stat-icon">💰</span><div class="stat-label">Total Spent</div><div class="stat-val" id="stat-total">₹0</div><div class="stat-sub" id="stat-total-sub">0 transactions</div></div>
+    <div class="stat s2"><span class="stat-icon">📈</span><div class="stat-label">Biggest Day</div><div class="stat-val" id="stat-bigday">₹0</div><div class="stat-sub" id="stat-bigday-sub">—</div></div>
+    <div class="stat s3"><span class="stat-icon">🏷️</span><div class="stat-label">Top Category</div><div class="stat-val" id="stat-topcat" style="font-size:18px">—</div><div class="stat-sub" id="stat-topcat-sub">—</div></div>
+    <div class="stat s4"><span class="stat-icon">📅</span><div class="stat-label">Daily Average</div><div class="stat-val" id="stat-avg">₹0</div><div class="stat-sub" id="stat-avg-sub">this month</div></div>
+  </div>
+
+  <!-- CHARTS -->
+  <div class="charts-row">
+    <div class="chart-card">
+      <div class="chart-title">📆 Daily Spending <span id="trend-label"></span></div>
+      <canvas id="trendChart"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">🍩 By Category</div>
+      <canvas id="donutChart"></canvas>
+    </div>
+  </div>
+
+  <!-- BOTTOM -->
+  <div class="bottom-row">
+    <div class="chart-card">
+      <div class="chart-title">🏷️ Breakdown</div>
+      <div class="cat-list" id="catList"></div>
+    </div>
+    <div class="chart-card">
+      <div class="txn-header">
+        <div class="chart-title" style="margin:0">🧾 Transactions</div>
+        <input class="search-bar" id="searchBar" placeholder="🔍 Search..." oninput="render()"/>
+      </div>
+      <div class="txn-list" id="txnList"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- MODAL -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title">Add Expense</div>
+      <button class="close-x" onclick="closeModal()">✕</button>
+    </div>
+    <div class="fg"><label>Amount (₹)</label><input id="inp-amt" type="number" min="0" placeholder="0" /></div>
+    <div class="fg"><label>Description</label><input id="inp-desc" placeholder="e.g. Lunch at campus" /></div>
+    <div class="fg"><label>Date</label><input id="inp-date" type="date" /></div>
+    <div class="fg">
+      <label>Category</label>
+      <div class="cat-grid" id="catGrid">
+        <div class="cat-btn sel" data-cat="Food">🍔 Food</div>
+        <div class="cat-btn" data-cat="Books">📚 Books</div>
+        <div class="cat-btn" data-cat="Transport">🚌 Transport</div>
+        <div class="cat-btn" data-cat="Fees">🏫 Fees</div>
+        <div class="cat-btn" data-cat="Tech">💻 Tech</div>
+        <div class="cat-btn" data-cat="Health">💊 Health</div>
+        <div class="cat-btn" data-cat="Clothes">👗 Clothes</div>
+        <div class="cat-btn" data-cat="Fun">🎮 Fun</div>
+        <div class="cat-btn" data-cat="Other">📦 Other</div>
+      </div>
+    </div>
+    <button class="btn-save" onclick="addExpense()">Save Expense</button>
+  </div>
+</div>
+
+<script>
+// ============ DATA ============
+const CATS = {
+  Food:      { icon:'🍔', color:'#6c63ff' },
+  Books:     { icon:'📚', color:'#4fa3e3' },
+  Transport: { icon:'🚌', color:'#f7b731' },
+  Fees:      { icon:'🏫', color:'#e05c5c' },
+  Tech:      { icon:'💻', color:'#00c9a7' },
+  Health:    { icon:'💊', color:'#a78bfa' },
+  Clothes:   { icon:'👗', color:'#f97316' },
+  Fun:       { icon:'🎮', color:'#ec4899' },
+  Other:     { icon:'📦', color:'#94a3b8' }
+};
+
+let DATA = JSON.parse(localStorage.getItem('explens_v1') || '[]');
+let BUDGET = parseInt(localStorage.getItem('explens_budget') || '0');
+let selCat = 'Food';
+let trendChart, donutChart;
+let filteredMonth = 'all';
+
+// ============ MONTH FILTER ============
+function buildMonthOptions() {
+  const sel = document.getElementById('monthFilter');
+  const months = [...new Set(DATA.map(x => x.date.slice(0,7)))].sort().reverse();
+  sel.innerHTML = '<option value="all">All Time</option>' + months.map(m => {
+    const [y, mo] = m.split('-');
+    const label = new Date(y, mo-1).toLocaleDateString('en-IN', {month:'long', year:'numeric'});
+    return `<option value="${m}">${label}</option>`;
+  }).join('');
+  // Default to current month if exists
+  const cur = new Date().toISOString().slice(0,7);
+  if (months.includes(cur)) sel.value = cur;
+  filteredMonth = sel.value;
+}
+function applyFilter() {
+  filteredMonth = document.getElementById('monthFilter').value;
+  render();
+}
+function getFiltered() {
+  if (filteredMonth === 'all') return DATA;
+  return DATA.filter(x => x.date.startsWith(filteredMonth));
+}
+
+// ============ BUDGET ============
+function setBudget() {
+  const v = prompt('Set monthly budget (₹):', BUDGET || '');
+  if (v !== null) { BUDGET = parseInt(v) || 0; localStorage.setItem('explens_budget', BUDGET); renderBudget(); }
+}
+function renderBudget() {
+  const cur = filteredMonth === 'all' ? new Date().toISOString().slice(0,7) : filteredMonth;
+  const [y, mo] = cur.split('-');
+  const label = new Date(y, mo-1).toLocaleDateString('en-IN', {month:'long', year:'numeric'});
+  document.getElementById('budget-month-label').textContent = label;
+  const spent = DATA.filter(x => x.date.startsWith(cur)).reduce((s,x) => s + x.amount, 0);
+  const pct = BUDGET > 0 ? Math.min(100, Math.round(spent / BUDGET * 100)) : 0;
+  const left = BUDGET > 0 ? BUDGET - spent : 0;
+  const fill = document.getElementById('budget-fill');
+  fill.style.width = pct + '%';
+  fill.style.background = pct >= 90 ? 'var(--red)' : pct >= 70 ? 'var(--yellow)' : 'var(--green)';
+  document.getElementById('budget-pct').textContent = BUDGET > 0 ? pct + '%' : '—';
+  document.getElementById('budget-spent-lbl').textContent = '₹' + fmt(spent) + ' spent';
+  document.getElementById('budget-left-lbl').textContent = BUDGET > 0 ? '₹' + fmt(Math.max(0, left)) + ' remaining' : 'Budget not set';
+}
+
+// ============ STATS ============
+function fmt(n) { return Math.round(n).toLocaleString('en-IN'); }
+function renderStats(data) {
+  const total = data.reduce((s,x) => s + x.amount, 0);
+  document.getElementById('stat-total').textContent = '₹' + fmt(total);
+  document.getElementById('stat-total-sub').textContent = data.length + ' transactions';
+
+  // Biggest day
+  const byDay = {};
+  data.forEach(x => { byDay[x.date] = (byDay[x.date]||0) + x.amount; });
+  const [bigDay, bigAmt] = Object.entries(byDay).sort((a,b)=>b[1]-a[1])[0] || ['—', 0];
+  document.getElementById('stat-bigday').textContent = bigAmt ? '₹' + fmt(bigAmt) : '₹0';
+  document.getElementById('stat-bigday-sub').textContent = bigDay !== '—' ? new Date(bigDay+'T00:00').toLocaleDateString('en-IN',{day:'numeric',month:'short'}) : '—';
+
+  // Top cat
+  const byCat = {};
+  data.forEach(x => { byCat[x.cat] = (byCat[x.cat]||0) + x.amount; });
+  const [topCat, topAmt] = Object.entries(byCat).sort((a,b)=>b[1]-a[1])[0] || ['—', 0];
+  document.getElementById('stat-topcat').textContent = topCat !== '—' ? (CATS[topCat]?.icon||'') + ' ' + topCat : '—';
+  document.getElementById('stat-topcat-sub').textContent = topCat !== '—' ? '₹' + fmt(topAmt) : 'No data';
+
+  // Daily avg (this month)
+  const days = Object.keys(byDay).length || 1;
+  document.getElementById('stat-avg').textContent = '₹' + fmt(total / days);
+  document.getElementById('stat-avg-sub').textContent = days + ' active days';
+}
+
+// ============ TREND CHART ============
+function renderTrend(data) {
+  // Build daily data for current month view or last 30 days
+  let days = [];
+  if (filteredMonth !== 'all') {
+    const [y, mo] = filteredMonth.split('-');
+    const daysInMonth = new Date(y, mo, 0).getDate();
+    for (let d = 1; d <= daysInMonth; d++) {
+      days.push(`${filteredMonth}-${String(d).padStart(2,'0')}`);
+    }
+  } else {
+    const today = new Date();
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(today); d.setDate(d.getDate() - i);
+      days.push(d.toISOString().slice(0,10));
+    }
+  }
+  const byDay = {};
+  data.forEach(x => { byDay[x.date] = (byDay[x.date]||0) + x.amount; });
+  const labels = days.map(d => { const dt = new Date(d+'T00:00'); return dt.getDate(); });
+  const vals = days.map(d => byDay[d] || 0);
+
+  document.getElementById('trend-label').textContent = filteredMonth !== 'all' ? '' : '(Last 30 Days)';
+
+  if (trendChart) trendChart.destroy();
+  trendChart = new Chart(document.getElementById('trendChart'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        data: vals,
+        backgroundColor: vals.map(v => v > 0 ? 'rgba(108,99,255,0.7)' : 'rgba(108,99,255,0.1)'),
+        borderColor: vals.map(v => v > 0 ? '#6c63ff' : 'rgba(108,99,255,0.15)'),
+        borderWidth: 1, borderRadius: 4
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: { legend: { display: false }, tooltip: {
+        callbacks: { label: ctx => '₹' + Math.round(ctx.raw).toLocaleString('en-IN') }
+      }},
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#7b82a0', font: { size: 11 } } },
+        y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#7b82a0', font: { size: 11 },
+          callback: v => '₹' + (v >= 1000 ? (v/1000).toFixed(1)+'k' : v) } }
+      }
+    }
+  });
+}
+
+// ============ DONUT CHART ============
+function renderDonut(data) {
+  const byCat = {};
+  data.forEach(x => { byCat[x.cat] = (byCat[x.cat]||0) + x.amount; });
+  const entries = Object.entries(byCat).sort((a,b)=>b[1]-a[1]);
+  const labels = entries.map(e => e[0]);
+  const vals = entries.map(e => e[1]);
+  const colors = entries.map(e => CATS[e[0]]?.color || '#94a3b8');
+
+  if (donutChart) donutChart.destroy();
+  donutChart = new Chart(document.getElementById('donutChart'), {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{ data: vals, backgroundColor: colors, borderColor: '#161921', borderWidth: 3, hoverOffset: 6 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true, cutout: '68%',
+      plugins: {
+        legend: { position: 'right', labels: { color: '#e8eaf6', boxWidth: 12, padding: 14, font: { size: 12 } } },
+        tooltip: { callbacks: { label: ctx => ctx.label + ': ₹' + Math.round(ctx.raw).toLocaleString('en-IN') } }
+      }
+    }
+  });
+}
+
+// ============ CAT LIST ============
+function renderCatList(data) {
+  const byCat = {};
+  data.forEach(x => { byCat[x.cat] = (byCat[x.cat]||0) + x.amount; });
+  const total = data.reduce((s,x) => s + x.amount, 0) || 1;
+  const entries = Object.entries(byCat).sort((a,b)=>b[1]-a[1]);
+  const el = document.getElementById('catList');
+  if (!entries.length) { el.innerHTML = '<div class="empty-state">No data</div>'; return; }
+  el.innerHTML = entries.map(([cat, amt]) => `
+    <div class="cat-row">
+      <div class="cat-dot" style="background:${CATS[cat]?.color||'#94a3b8'}"></div>
+      <div class="cat-name">${CATS[cat]?.icon||''} ${cat}</div>
+      <div class="cat-bar-bg"><div class="cat-bar-fill" style="width:${(amt/total*100).toFixed(0)}%;background:${CATS[cat]?.color||'#94a3b8'}"></div></div>
+      <div class="cat-amt">₹${fmt(amt)}</div>
+      <div class="cat-pct">${(amt/total*100).toFixed(0)}%</div>
+    </div>`).join('');
+}
+
+// ============ TRANSACTIONS ============
+function renderTxns(data) {
+  const q = document.getElementById('searchBar').value.toLowerCase();
+  let rows = [...data].sort((a,b) => b.date.localeCompare(a.date));
+  if (q) rows = rows.filter(x => x.desc.toLowerCase().includes(q) || x.cat.toLowerCase().includes(q));
+  const el = document.getElementById('txnList');
+  if (!rows.length) { el.innerHTML = '<div class="empty-state">No transactions yet.<br>Add your first expense! 🎉</div>'; return; }
+  el.innerHTML = rows.map(x => `
+    <div class="txn-row">
+      <div class="txn-emoji">${CATS[x.cat]?.icon||'📦'}</div>
+      <div class="txn-info">
+        <div class="txn-name">${x.desc}</div>
+        <div class="txn-meta">${new Date(x.date+'T00:00').toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})} · <span style="color:${CATS[x.cat]?.color||'#94a3b8'}">${x.cat}</span></div>
+      </div>
+      <div class="txn-amt">−₹${fmt(x.amount)}</div>
+      <button class="txn-del" onclick="delTxn('${x.id}')">✕</button>
+    </div>`).join('');
+}
+
+// ============ RENDER ============
+function render() {
+  const data = getFiltered();
+  renderStats(data);
+  renderTrend(data);
+  renderDonut(data);
+  renderCatList(data);
+  renderTxns(data);
+  renderBudget();
+}
+
+// ============ ADD / DELETE ============
+function addExpense() {
+  const amt = parseFloat(document.getElementById('inp-amt').value);
+  const desc = document.getElementById('inp-desc').value.trim();
+  const date = document.getElementById('inp-date').value;
+  if (!amt || amt <= 0) { alert('Enter a valid amount'); return; }
+  if (!desc) { alert('Add a description'); return; }
+  if (!date) { alert('Pick a date'); return; }
+  DATA.push({ id: Date.now().toString(36), amount: amt, desc, date, cat: selCat });
+  localStorage.setItem('explens_v1', JSON.stringify(DATA));
+  buildMonthOptions();
+  render();
+  closeModal();
+  document.getElementById('inp-amt').value = '';
+  document.getElementById('inp-desc').value = '';
+}
+function delTxn(id) {
+  if (!confirm('Delete this expense?')) return;
+  DATA = DATA.filter(x => x.id !== id);
+  localStorage.setItem('explens_v1', JSON.stringify(DATA));
+  buildMonthOptions();
+  render();
+}
+
+// ============ MODAL ============
+function openModal() {
+  document.getElementById('inp-date').value = new Date().toISOString().slice(0,10);
+  document.getElementById('overlay').classList.add('open');
+}
+function closeModal() { document.getElementById('overlay').classList.remove('open'); }
+document.getElementById('overlay').addEventListener('click', e => { if (e.target === document.getElementById('overlay')) closeModal(); });
+
+// CAT BUTTONS
+document.querySelectorAll('.cat-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('sel'));
+    btn.classList.add('sel');
+    selCat = btn.dataset.cat;
+  });
+});
+
+// ============ INIT ============
+buildMonthOptions();
+render();
+</script>
+</body>
+</html>
